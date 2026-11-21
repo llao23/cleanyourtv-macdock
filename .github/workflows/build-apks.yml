@@ -1,0 +1,42 @@
+name: Build MacDock APKs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Make gradlew executable
+        run: |
+          chmod +x launcher/gradlew
+          if [ -f addons/weather/gradlew ]; then chmod +x addons/weather/gradlew; fi
+
+      - name: Build Launcher APK
+        working-directory: launcher
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Build Weather Add-on APK
+        working-directory: addons/weather
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          cp launcher/app/build/outputs/apk/release/app-release.apk dist/macdock-launcher.apk
+          cp addons/weather/app/build/outputs/apk/release/app-release.apk dist/weather-addon.apk
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: macdock-apks
+          path: dist/*.apk
