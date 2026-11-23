@@ -152,7 +152,7 @@ public final class LauncherSettingsActivity extends Activity {
             changed();
             refresh();
         });
-        if (config.macHome) setupMusic(config);
+        if (config.macHome || config.cinematicHome) setupMusic(config);
         findViewById(R.id.defaultHomeChoice).setOnClickListener(v -> {
             Toast.makeText(this, R.string.home_settings_help, Toast.LENGTH_LONG).show();
             open(new Intent(Settings.ACTION_HOME_SETTINGS));
@@ -305,7 +305,7 @@ public final class LauncherSettingsActivity extends Activity {
         refreshMusic();
     }
 
-    // ---- Music (mac_home): the now-playing bar, the visualizer and their two permissions -------------------------
+    // ---- Music (mac_home / cinematic_home): the now-playing bar, the visualizer and their two permissions -------
 
     private static final String[] STYLES = {"bars", "waves", "off"};
     private Config music;
@@ -341,6 +341,11 @@ public final class LauncherSettingsActivity extends Activity {
         mediaAccessChoice.setOnClickListener(v -> open(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
         micChoice.setOnClickListener(v -> open(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 android.net.Uri.fromParts("package", getPackageName(), null))));
+        if (!config.macHome) {
+            musicStyleChoice.setVisibility(View.GONE);
+            accentChoice.setVisibility(View.GONE);
+            micChoice.setVisibility(View.GONE);
+        }
     }
 
     private void musicChanged() {

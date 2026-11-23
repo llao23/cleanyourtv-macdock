@@ -2,6 +2,7 @@ package com.gathin.tvhome;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
@@ -21,7 +22,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
-import android.content.pm.PackageManager;
+
 import java.util.List;
 
 /**
@@ -36,16 +37,11 @@ final class NowPlaying extends View {
     }
 
     private static final float W_DP = 560, H_DP = 76, ART_DP = 52, PAD_DP = 12, CTRL_DP = 40;
-
     private static final float CINE_W_DP = 540, CINE_H_DP = 104, CINE_ART_DP = 76, CINE_PAD_DP = 14;
-    private final Paint cardBg = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final TextPaint cinematicTitle = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-    private final TextPaint sourcePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
-    private boolean cinematicMode;
-    private String sourceText = "";
 
     private final float dp;
     private final Paint glass = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint cardBg = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rimFocus = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint art = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -54,6 +50,8 @@ final class NowPlaying extends View {
     private final Paint ctrlFocus = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint title = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final TextPaint artist = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint cinematicTitle = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint sourcePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
     private final RectF box = new RectF();
     private final Path shape = new Path();
     private final Matrix artMatrix = new Matrix();
@@ -62,9 +60,10 @@ final class NowPlaying extends View {
     private MediaSessionManager sessions;
     private ComponentName access;
     private MediaController controller;
-    private String titleText = "", artistText = "";
+    private String titleText = "", artistText = "", sourceText = "";
     private Bitmap artBitmap;
     private boolean playing;
+    private boolean cinematicMode;
     /** Back on the bar hides it; it comes back when something starts playing again. */
     private boolean dismissed;
     /** 0 previous, 1 play/pause, 2 next. */
@@ -96,6 +95,7 @@ final class NowPlaying extends View {
         setFocusable(true);
         setVisibility(GONE);
         glass.setColor(0x47FFFFFF);
+        cardBg.setColor(0xB812141A);
         rim.setStyle(Paint.Style.STROKE);
         rim.setStrokeWidth(1 * dp);
         rim.setColor(0x47FFFFFF);
@@ -111,7 +111,6 @@ final class NowPlaying extends View {
         artist.setColor(0xCCFFFFFF);
         artist.setTextSize(14 * sp);
         artist.setTypeface(UiFont.get(context, R.string.font_medium));
-        cardBg.setColor(0xB812141A);
         cinematicTitle.setColor(0xFFFFFFFF);
         cinematicTitle.setTextSize(19 * sp);
         cinematicTitle.setTypeface(UiFont.get(context, R.string.font_medium));
@@ -180,16 +179,18 @@ final class NowPlaying extends View {
         boolean nowPlaying = s != null && s.getState() == PlaybackState.STATE_PLAYING;
         if (nowPlaying && !playing) dismissed = false;   // a new start brings a dismissed bar back
         playing = nowPlaying;
-        private String appLabel(String pkg) {
-        if (TextUtils.isEmpty(pkg)) return "";
-        try {
-            PackageManager pm = getContext().getPackageManager();
-            CharSequence label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0));
-            return label == null ? "" : label.toString();
-        } catch (PackageManager.NameNotFoundException e) {
-            return "";
+        if (m != null) {
+            titleText = text(m, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+            artistText = text(m, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
+            sourceText = appLabel(c.getPackageName());
+            Bitmap b = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+            if (b == null) b = m.getBitmap(MediaMetadata.METADATA_KEY_ART);
+            if (b == null) b = m.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
+            setArt(b);
+        } else {
+            sourceText = "";
         }
-    }
+        boolean visible = m != null && !TextUtils.isEmpty(titleText) && !dismissed && (!cinematicMode || nowPlaying);
         if (!visible && hasFocus()) {
             View down = focusSearch(FOCUS_DOWN);
             if (down != null) down.requestFocus();
@@ -203,6 +204,17 @@ final class NowPlaying extends View {
         CharSequence t = m.getText(key);
         if (TextUtils.isEmpty(t)) t = m.getText(fallback);
         return t == null ? "" : t.toString();
+    }
+
+    private String appLabel(String pkg) {
+        if (TextUtils.isEmpty(pkg)) return "";
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            CharSequence label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0));
+            return label == null ? "" : label.toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return "";
+        }
     }
 
     private void setArt(Bitmap b) {
