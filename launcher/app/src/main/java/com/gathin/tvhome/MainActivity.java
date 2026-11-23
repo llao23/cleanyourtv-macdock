@@ -1719,24 +1719,24 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }, libraryExcludedApps);
         openPopup = appLibrary.popup;
         appLibrary.show();
-        private void addLibraryAppToDock(String pkg) {
-      libraryFocusPending = false;
-      reloadTiles();
-      int pos = -1;
-      for (int i = 0; i < adapter.movableCount(); i++) {
-          if (pkg.equals(adapter.packageAt(i))) {
-              pos = i;
-              break;
-          }
-      }
-      if (pos < 0) {
-          Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
-          return;
-      }
-      startDockEditFor(adapter.keyAt(pos), pos < COLUMNS);
-  }
     }
 
+    private void addLibraryAppToDock(String pkg) {
+        libraryFocusPending = false;
+        reloadTiles();
+        int pos = -1;
+        for (int i = 0; i < adapter.movableCount(); i++) {
+            if (pkg.equals(adapter.packageAt(i))) {
+                pos = i;
+                break;
+            }
+        }
+        if (pos < 0) {
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        startDockEditFor(adapter.keyAt(pos), pos < COLUMNS);
+    }
     @Override
     public void onTileFocused(int position, View card) {
         lastFocused = position;
