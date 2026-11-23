@@ -37,6 +37,13 @@ final class NowPlaying extends View {
 
     private static final float W_DP = 560, H_DP = 76, ART_DP = 52, PAD_DP = 12, CTRL_DP = 40;
 
+    private static final float CINE_W_DP = 540, CINE_H_DP = 104, CINE_ART_DP = 76, CINE_PAD_DP = 14;
+    private final Paint cardBg = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint cinematicTitle = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private final TextPaint sourcePaint = new TextPaint(Paint.ANTI_ALIAS_FLAG);
+    private boolean cinematicMode;
+    private String sourceText = "";
+
     private final float dp;
     private final Paint glass = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -104,10 +111,23 @@ final class NowPlaying extends View {
         artist.setColor(0xCCFFFFFF);
         artist.setTextSize(14 * sp);
         artist.setTypeface(UiFont.get(context, R.string.font_medium));
+        cardBg.setColor(0xB812141A);
+        cinematicTitle.setColor(0xFFFFFFFF);
+        cinematicTitle.setTextSize(19 * sp);
+        cinematicTitle.setTypeface(UiFont.get(context, R.string.font_medium));
+        sourcePaint.setColor(0xA6FFFFFF);
+        sourcePaint.setTextSize(12 * sp);
+        sourcePaint.setTypeface(UiFont.get(context, R.string.font_medium));
     }
 
     void setListener(Listener l) {
         listener = l;
+    }
+
+    void setCinematicMode(boolean mode) {
+        cinematicMode = mode;
+        setFocusable(!mode);
+        requestLayout();
     }
 
     /** While Home is on screen. */
@@ -160,15 +180,16 @@ final class NowPlaying extends View {
         boolean nowPlaying = s != null && s.getState() == PlaybackState.STATE_PLAYING;
         if (nowPlaying && !playing) dismissed = false;   // a new start brings a dismissed bar back
         playing = nowPlaying;
-        if (m != null) {
-            titleText = text(m, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
-            artistText = text(m, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
-            Bitmap b = m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-            if (b == null) b = m.getBitmap(MediaMetadata.METADATA_KEY_ART);
-            if (b == null) b = m.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
-            setArt(b);
+        private String appLabel(String pkg) {
+        if (TextUtils.isEmpty(pkg)) return "";
+        try {
+            PackageManager pm = getContext().getPackageManager();
+            CharSequence label = pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0));
+            return label == null ? "" : label.toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return "";
         }
-        boolean visible = m != null && !TextUtils.isEmpty(titleText) && !dismissed;
+    }
         if (!visible && hasFocus()) {
             View down = focusSearch(FOCUS_DOWN);
             if (down != null) down.requestFocus();
@@ -195,12 +216,46 @@ final class NowPlaying extends View {
 
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
-        int w = Math.min(MeasureSpec.getSize(widthSpec), Math.round(W_DP * dp));
-        setMeasuredDimension(w, Math.round(H_DP * dp));
+        float wDp = cinematicMode ? CINE_W_DP : W_DP;
+        float hDp = cinematicMode ? CINE_H_DP : H_DP;
+        int w = Math.min(MeasureSpec.getSize(widthSpec), Math.round(wDp * dp));
+        setMeasuredDimension(w, Math.round(hDp * dp));
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
+        if (cinematicMode) {
+            float w = getWidth(), h = getHeight(), r = 22 * dp, pad = CINE_PAD_DP * dp;
+            box.set(0.5f * dp, 0.5f * dp, w - 0.5f * dp, h - 0.5f * dp);
+            canvas.drawRoundRect(box, r, r, cardBg);
+            canvas.drawRoundRect(box, r, r, rim);
+            float a = CINE_ART_DP * dp, ay = (h - a) / 2f;
+            box.set(pad, ay, pad + a, ay + a);
+            if (artBitmap != null) {
+                float scale = Math.max(a / artBitmap.getWidth(), a / artBitmap.getHeight());
+                artMatrix.setScale(scale, scale);
+                artMatrix.postTranslate(pad + (a - artBitmap.getWidth() * scale) / 2f, ay + (a - artBitmap.getHeight() * scale) / 2f);
+                art.getShader().setLocalMatrix(artMatrix);
+                canvas.drawRoundRect(box, 14 * dp, 14 * dp, art);
+            } else {
+                canvas.drawRoundRect(box, 14 * dp, 14 * dp, artBlank);
+            }
+            float tx = pad + a + 16 * dp, maxW = w - pad - tx;
+            if (maxW > 0) {
+                float cy = h / 2f;
+                if (!TextUtils.isEmpty(sourceText)) {
+                    CharSequence sText = TextUtils.ellipsize(sourceText, sourcePaint, maxW, TextUtils.TruncateAt.END);
+                    canvas.drawText(sText, 0, sText.length(), tx, cy - 18 * dp, sourcePaint);
+                }
+                CharSequence t1 = TextUtils.ellipsize(titleText, cinematicTitle, maxW, TextUtils.TruncateAt.END);
+                canvas.drawText(t1, 0, t1.length(), tx, cy + 6 * dp, cinematicTitle);
+                if (!TextUtils.isEmpty(artistText)) {
+                    CharSequence t2 = TextUtils.ellipsize(artistText, artist, maxW, TextUtils.TruncateAt.END);
+                    canvas.drawText(t2, 0, t2.length(), tx, cy + 28 * dp, artist);
+                }
+            }
+            return;
+        }
         float w = getWidth(), h = getHeight(), r = h / 2.6f, pad = PAD_DP * dp;
         box.set(0.5f * dp, 0.5f * dp, w - 0.5f * dp, h - 0.5f * dp);
         canvas.drawRoundRect(box, r, r, glass);
