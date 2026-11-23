@@ -1839,6 +1839,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     // ---- top shelf -------------------------------------------------------------------------------
 
     private void showHero(int position, float dockTopInRoot) {
+        lastDockTopInRoot = dockTopInRoot;
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
         float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
@@ -1859,6 +1860,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 ambient.setAlpha(1f);
             }
             heroShown = true;
+            positionCinematicMusic();
             return;
         }
 
@@ -1900,6 +1902,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 ambient.animate().alpha(1f).setDuration(600).start();
             }
         }
+        positionCinematicMusic();
     }
 
     /** The shelf's text for this dock app: its name and, on the cinematic shelf, "Last opened" and the dots. */
@@ -1989,6 +1992,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** "Last opened yesterday, 9:40 PM", the time in white; nothing (but the same height) when it was never seen. */
     private void updateHeroMeta(int position) {
+        if (cinematicMusicActive) {
+            heroMeta.setVisibility(View.INVISIBLE);
+            return;
+        }
         long when = LastOpened.get(this, adapter.packageAt(position));
         if (when <= 0) {
             heroMeta.setVisibility(View.INVISIBLE);
@@ -2123,6 +2130,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArt.animate().cancel();
         heroArt.setAlpha(0f);
         heroShown = false;
+        if (cinematic && nowPlaying != null) nowPlaying.setVisibility(View.GONE);
         if (!ambientGlow) return;
         if (!animations || reducedMotion) {
             setAmbient(color);
@@ -2147,6 +2155,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         ambient.animate().cancel();
         heroArt.animate().cancel();
         heroShown = false;
+        if (cinematic && nowPlaying != null) nowPlaying.setVisibility(View.GONE);
         if (animations && !reducedMotion) {
             hero.animate().alpha(0f).setDuration(160).start();
             if (ambientGlow) ambient.animate().alpha(0f).setDuration(300).start();
@@ -2974,10 +2983,10 @@ private void setupCinematicMusic() {
             else if (hour < 15) res = R.string.good_afternoon;
             else if (hour < 18) res = R.string.good_evening;
             else res = R.string.good_night;
-        } else if (("es".equals(lang) && "ES".equals(country)) || "ca".equals(lang)) {
-            if (hour < 6) res = R.string.good_night;
+        } else if ("es".equals(lang) || "ca".equals(lang)) {
+            if (hour < 5) res = R.string.good_night;
             else if (hour < 12) res = R.string.good_morning;
-            else if (hour < 21) res = R.string.good_afternoon;
+            else if (hour < 20) res = R.string.good_afternoon;
             else res = R.string.good_night;
         } else if ("da".equals(lang)) {
             // Danish day parts: "God morgen" until 11, then "God formiddag" to noon.
