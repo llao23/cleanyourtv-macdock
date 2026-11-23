@@ -206,6 +206,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean macWaves, macBarsOff, macNowPlaying, macAutoAccent;
     /** The dock's Music toggle: the player and the visualizer shown or hidden, kept across restarts. */
     private boolean macMusicShown = true;
+    private boolean cinematicMusicActive;
+    private float lastDockTopInRoot = -1f;
     private boolean weatherOn;
     private int weatherMinutes;
     private final java.util.concurrent.ExecutorService weatherIo = java.util.concurrent.Executors.newSingleThreadExecutor();
@@ -534,6 +536,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         macAutoAccent = cfg.accentFromWallpaper;
         macMusicShown = getSharedPreferences("mac_home", MODE_PRIVATE).getBoolean("music_shown", true);
         statsRings.setColor(cfg.statsRingColor);
+        if (!macHome && cinematic && macNowPlaying) setupCinematicMusic();
         inputsConnectedOnly = cfg.inputsConnectedOnly;
         shamsi = cfg.shamsiDate;
         lunarDate = findViewById(R.id.lunarDate);
@@ -1035,6 +1038,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         if (showStats) startStats();
         if (weatherOn) readWeather();
+        if (!macHome && cinematic && macNowPlaying && nowPlaying != null) nowPlaying.start();
         if (macHome) {
             if (macDock == null) setupMacHome();
             macOnScreen = true;
@@ -1216,7 +1220,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         macOnScreen = false;
         if (nowPlaying != null) {
             nowPlaying.stop();
-            musicBars.setPlaying(false);
+            if (musicBars != null) musicBars.setPlaying(false);
         }
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
@@ -1693,7 +1697,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         libraryFocusPending = false;
         libraryFromTopBar = false;
         libraryFromVpnPill = false;
-        appLibrary = new AppLibraryDialog(this, animations, reducedMotion, appLibrarySelection, libraryOkOpens, adapter::containsPackage, () -> reloadApps(false), () -> {
+        appLibrary = new AppLibraryDialog(this, animations, reducedMotion, appLibrarySelection, libraryOkOpens, adapter::containsPackage, this::addLibraryAppToDock, () -> reloadApps(false), () -> {
             appLibrary = null;
             openPopup = null;
             if (libraryFromTopBar) {
@@ -1710,11 +1714,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             libraryFocusPending = true;
             grid.post(() -> {
-                if (libraryFocusPending && appLibrary == null && hasWindowFocus() && !isFinishing()) focusLibrary();
+                if (!reordering && libraryFocusPending && appLibrary == null && hasWindowFocus() && !isFinishing()) focusLibrary();
             });
         }, libraryExcludedApps);
         openPopup = appLibrary.popup;
         appLibrary.show();
+        private void addLibraryAppToDock(String pkg) {
+      libraryFocusPending = false;
+      reloadTiles();
+      int pos = -1;
+      for (int i = 0; i < adapter.movableCount(); i++) {
+          if (pkg.equals(adapter.packageAt(i))) {
+              pos = i;
+              break;
+          }
+      }
+      if (pos < 0) {
+          Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+          return;
+      }
+      startDockEditFor(adapter.keyAt(pos), pos < COLUMNS);
+  }
     }
 
     @Override
@@ -2199,6 +2219,43 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static void appendStat(StringBuilder line, String part) {
         if (line.length() > 0) line.append("  ·  ");
         line.append(part);
+    }
+
+private void setupCinematicMusic() {
+        nowPlaying = new NowPlaying(this);
+        nowPlaying.setCinematicMode(true);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.START);
+        if (hero.getLayoutParams() instanceof ViewGroup.MarginLayoutParams) {
+            lp.setMarginStart(((ViewGroup.MarginLayoutParams) hero.getLayoutParams()).getMarginStart());
+        }
+        lp.setMarginEnd(Math.round(32 * density));
+        root.addView(nowPlaying, lp);
+        nowPlaying.setListener((visible, playing) -> {
+            cinematicMusicActive = visible && playing;
+            positionCinematicMusic();
+        });
+    }
+
+    private void positionCinematicMusic() {
+        if (!cinematic || nowPlaying == null) return;
+        heroName.setVisibility(cinematicMusicActive ? View.INVISIBLE : View.VISIBLE);
+        if (cinematicMusicActive) {
+            heroMeta.setVisibility(View.INVISIBLE);
+        } else if (heroShown) {
+            updateHeroMeta(Math.max(0, Math.min(lastFocused, Math.max(0, adapter.appCount() - 1))));
+        }
+        if (!cinematicMusicActive || !heroShown || lastDockTopInRoot <= 0f) {
+            nowPlaying.setVisibility(View.GONE);
+            return;
+        }
+        int cardH = nowPlaying.getHeight() > 0 ? nowPlaying.getHeight() : Math.round(104 * density);
+        int dotsH = (heroDotsShown && heroDots.getVisibility() == View.VISIBLE)
+                ? heroDots.getHeight() + Math.round(14 * density) : 0;
+        float cardY = lastDockTopInRoot - 14 * density - 26 * density - dotsH - cardH;
+        nowPlaying.setY(Math.max(clockBlock.getBottom() + 12 * density, cardY));
+        nowPlaying.setVisibility(View.VISIBLE);
     }
 
     // ---- mac_home: a macOS-style dock and an app panel in place of the dock row and the grid ------------------
