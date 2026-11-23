@@ -21,7 +21,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
-
+import android.content.pm.PackageManager;
 import java.util.List;
 
 /**
