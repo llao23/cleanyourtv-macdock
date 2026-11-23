@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /** On-demand installed-app picker. Uses the launcher's glass resources; no backdrop capture or blur. */
@@ -76,6 +77,7 @@ final class AppLibraryDialog {
     private final LibraryLoads loads = new LibraryLoads();
     private final Activity activity;
     private final Predicate<String> onHome;
+    private final Consumer<String> addToDock;
     private final Runnable changed;
     private final LinearLayout panel;
     private final boolean reducedMotion;
@@ -147,7 +149,7 @@ final class AppLibraryDialog {
      *  setups are unaffected. See LibraryApps.excludedFromCatalog(). */
     private final Set<String> excludedApps;
 
-    AppLibraryDialog(Activity activity, boolean animations, boolean reducedMotion, boolean selectionMode, boolean okOpens, Predicate<String> onHome, Runnable changed, Runnable dismissed, Set<String> excludedApps) {
+    AppLibraryDialog(Activity activity, boolean animations, boolean reducedMotion, boolean selectionMode, boolean okOpens, Predicate<String> onHome, Consumer<String> addToDock, Runnable changed, Runnable dismissed, Set<String> excludedApps) {
         this.activity = activity;
         this.animations = animations;
         this.rtl = activity.getResources().getBoolean(R.bool.rtl_app_grid);
@@ -155,6 +157,7 @@ final class AppLibraryDialog {
         this.selectionMode = selectionMode;
         this.okOpens = okOpens && !selectionMode;
         this.onHome = onHome;
+        this.addToDock = addToDock;
         this.changed = changed;
         this.dismissed = dismissed;
         this.excludedApps = excludedApps;
@@ -539,6 +542,16 @@ final class AppLibraryDialog {
         boolean home = onHome.test(pkg);
         addAction(rows, home ? R.string.library_remove_shortcut : R.string.library_add_home,
                 () -> changeHome(app, !home));
+        if (addToDock != null) {
+            addAction(rows, R.string.tile_add_to_dock, () -> {
+                if (!onHome.test(pkg) && !LibraryApps.save(activity, pkg, true)) {
+                    Toast.makeText(activity, R.string.library_save_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                close();
+                addToDock.accept(pkg);
+            });
+        }
         Intent info = SystemSettings.appInfo(activity, pkg);
         if (info != null) addAction(rows, R.string.library_app_info, () -> {
             close();
