@@ -830,6 +830,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     if (nowPlaying.getVisibility() != View.VISIBLE || !nowPlaying.requestFocus()) macDock.requestFocus();
                     return true;
                 }
+                if (cinematic && nowPlaying != null && nowPlaying.getVisibility() == View.VISIBLE && nowPlaying.requestFocus()) {
+                    return true;
+                }
                 // Back to the dock tile Up came from, not wherever the focus finder lands.
                 focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
                 return true;
@@ -2242,7 +2245,7 @@ private void setupCinematicMusic() {
         lp.setMarginEnd(Math.round(32 * density));
         root.addView(nowPlaying, lp);
         nowPlaying.setListener((visible, playing) -> {
-            cinematicMusicActive = visible && playing;
+            cinematicMusicActive = visible;
             positionCinematicMusic();
         });
     }
