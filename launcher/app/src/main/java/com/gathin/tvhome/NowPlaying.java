@@ -125,7 +125,7 @@ final class NowPlaying extends View {
 
     void setCinematicMode(boolean mode) {
         cinematicMode = mode;
-        setFocusable(!mode);
+        setFocusable(true);
         requestLayout();
     }
 
@@ -190,7 +190,7 @@ final class NowPlaying extends View {
         } else {
             sourceText = "";
         }
-        boolean visible = m != null && !TextUtils.isEmpty(titleText) && !dismissed && (!cinematicMode || nowPlaying);
+        boolean visible = m != null && !TextUtils.isEmpty(titleText) && !dismissed;
         if (!visible && hasFocus()) {
             View down = focusSearch(FOCUS_DOWN);
             if (down != null) down.requestFocus();
@@ -240,7 +240,7 @@ final class NowPlaying extends View {
             float w = getWidth(), h = getHeight(), r = 22 * dp, pad = CINE_PAD_DP * dp;
             box.set(0.5f * dp, 0.5f * dp, w - 0.5f * dp, h - 0.5f * dp);
             canvas.drawRoundRect(box, r, r, cardBg);
-            canvas.drawRoundRect(box, r, r, rim);
+            canvas.drawRoundRect(box, r, r, hasFocus() ? rimFocus : rim);
             float a = CINE_ART_DP * dp, ay = (h - a) / 2f;
             box.set(pad, ay, pad + a, ay + a);
             if (artBitmap != null) {
@@ -252,7 +252,10 @@ final class NowPlaying extends View {
             } else {
                 canvas.drawRoundRect(box, 14 * dp, 14 * dp, artBlank);
             }
-            float tx = pad + a + 16 * dp, maxW = w - pad - tx;
+            float btnR = 22 * dp, bx = w - pad - btnR, by = h / 2f;
+            canvas.drawCircle(bx, by, btnR, hasFocus() ? ctrlFocus : artBlank);
+            drawControl(canvas, 1, bx, by, 9 * dp);
+            float tx = pad + a + 16 * dp, maxW = (bx - btnR - 14 * dp) - tx;
             if (maxW > 0) {
                 float cy = h / 2f;
                 if (!TextUtils.isEmpty(sourceText)) {
@@ -336,10 +339,12 @@ final class NowPlaying extends View {
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_LEFT:
+                if (cinematicMode) return super.onKeyDown(keyCode, event);
                 control = Math.max(0, control - 1);
                 invalidate();
                 return true;
             case KeyEvent.KEYCODE_DPAD_RIGHT:
+                if (cinematicMode) return super.onKeyDown(keyCode, event);
                 control = Math.min(2, control + 1);
                 invalidate();
                 return true;
